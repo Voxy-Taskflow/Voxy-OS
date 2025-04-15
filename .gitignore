@@ -1,0 +1,52 @@
+boot/kernel.bin
+# Build artifacts
+*.o
+*.elf
+*.bin
+*.iso
+*.img
+*.map
+*.lst
+*.log
+
+# GRUB and bootloader stuff
+/boot/
+/isodir/
+/sysroot/
+
+# QEMU debug outputs or logs
+*.qemu
+*.qemulog
+
+# GCC temporary files
+*.d
+
+# Make
+*.out
+*.mod
+*.mod.c
+*.symvers
+*.cmd
+*.tmp
+*.a
+
+# Editors and IDEs
+*~
+*.swp
+*.swo
+.DS_Store
+.vscode/
+.idea/
+*.code-workspace
+
+# GDB or debugging tools
+.gdb_history
+.gdbinit
+*.core
+*.dump
+
+# Custom kernel or linker script outputs
+kernel.elf
+kernel.bin
+kernel.map
+linker.ld.bak

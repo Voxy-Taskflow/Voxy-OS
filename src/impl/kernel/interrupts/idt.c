@@ -26,14 +26,25 @@ void load_idt() {
 }
 
 void idt_init() {
-    // CPU exceptions
+    extern void unhandled_interrupt_stub(); 
+
+    // First clear the IDT
+    for (int i = 0; i < IDT_ENTRIES; i++) {
+        set_idt_gate(i, (uint64_t)unhandled_interrupt_stub);
+    }
+
+    // CPU exceptions (0-31)
     for (int i = 0; i < 32; i++) {
         set_idt_gate(i, (uint64_t)isr_stub_table[i]);
     }
 
-    // Hardware IRQs
-    set_idt_gate(32, (uint64_t)irq0); // Timer
-    set_idt_gate(33, (uint64_t)irq1); // Keyboard
+    // Remap PIC before registering IRQ handlers
+    remap_pic();
 
+    // Hardware IRQs (32-47)
+    set_idt_gate(32, (uint64_t)irq0);  // Timer
+    set_idt_gate(33, (uint64_t)irq1);  // Keyboard
+    
+    // Load the IDT
     load_idt();
 }

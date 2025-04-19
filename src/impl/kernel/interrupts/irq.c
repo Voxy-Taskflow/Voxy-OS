@@ -30,7 +30,9 @@ void remap_pic() {
     outb(PIC2_DATA, 0x00);
 }
 
-void send_eoi() {
+void send_eoi(unsigned char irq) {
+    if (irq >= 8){
+        outb(PIC2_COMMAND, 0x20);
+    }
     outb(PIC1_COMMAND, 0x20);
-    outb(PIC2_COMMAND, 0x20);
 }

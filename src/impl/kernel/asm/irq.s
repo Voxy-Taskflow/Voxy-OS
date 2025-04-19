@@ -1,6 +1,6 @@
 section .text
 global irq0, irq1
-global send_eoi
+extern send_eoi
 
 extern handle_irq0
 extern handle_irq1

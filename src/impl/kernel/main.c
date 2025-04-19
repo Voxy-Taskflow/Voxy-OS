@@ -8,17 +8,11 @@ void kernel_main() {
     print_str("Welcome to our 64-bit kernel!\n");
     
     // First remap PIC
-    remap_pic();
-    print_str("PIC remapped\n");
-    
+    remap_pic();    
     // Then initialize IDT
-    idt_init();
-    print_str("IDT initialized\n");
-    
+    idt_init();    
     // Finally enable interrupts
-    asm volatile("sti");
-    print_str("Interrupts enabled\n");
-    
+    asm volatile("sti");    
     // Main kernel loop - prevent exit
     while(1) {
         asm volatile("hlt");

@@ -4,9 +4,10 @@
 #include <stdint.h>
 #include <io.h>
 #include <strings.h>
+#include <filesystem.h>
 
 int x = 0;
-int y = 1;
+int y = 2;
 int capslock = 0; // capslock = 0 (turned off), capslock = 1 (turned on)
 int is_extended = 0;
 char buffer_input[128];
@@ -53,6 +54,17 @@ int index = 0;
 #define backspace_pressed 0x0E
 #define capslock_pressed 0x3A
 
+static inline void outb(uint16_t port, uint8_t val) {
+    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
+}
+
+void set_cursor(int pos){
+    outb(0x3D4, 0x0E);
+    outb(0x305, (pos >> 8) & 0xFF);
+    outb(0x3D4, 0x0F);
+    outb(0X3D5, pos & 0xFF);
+}
+
 void clear_buffer(){
     for(int i; i < 128; i++){
         buffer_input[i] = '\0';
@@ -60,19 +72,62 @@ void clear_buffer(){
     index = 0;
 }
 
+void clear_screen(){
+    print_clear();
+    clear_buffer();
+}
+
 void help_called(){
     print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
-    print_str("Called for help\n");
+    print_str("Available Commands :-\n");
+    print_str("1) ver :- check the vesion of VoxyOS you are running\n");
+    print_str("2) install :- start the installation process\n");
+    print_str("3) clear :- clear the screen\n");
+    print_str("4) fnd :- find a file\n");
+    print_str("5) cr :- create a file\n");
 }
 
 void ver_called(){
     print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
     print_str("beta-0.01\n");
 }
+
 void start_installation(){
     //INSTALLATION
     print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
     print_str("Starting Installation...\n");
+}
+
+void find_called(){
+    print_set_color(PRINT_COLOR_BLUE, PRINT_COLOR_BLACK);
+    print_str("Please enter the name of the file you want to find:-  ");
+    clear_buffer();
+    uint16_t scan_code = inb(0x60);
+    int a = 0;
+    while(a==0)
+    {
+        if (scan_code == enter_released)
+        {
+            find_file(buffer_input);
+            a = 1;
+        }
+    }
+}
+
+void create_called(){
+    print_set_color(PRINT_COLOR_BLUE, PRINT_COLOR_BLACK);
+    print_str("Name the file{max length 32 chars}:-  ");
+    clear_buffer();
+    uint16_t scan_code = inb(0x60);
+    int a = 0;
+    while(a==0)
+    {
+        if (scan_code == enter_released)
+        {
+            create_file(buffer_input);
+            a = 1;
+        }
+    }
 }
 
 void check_command(){
@@ -89,19 +144,25 @@ void check_command(){
     {
         start_installation();
     }
+    //clear screen and reset cursor
+    if(strings_equal(buffer_input, "clear")){
+        clear_screen();
+        x=0;
+        y=0;
+        int cursor_pos = y*80+x;
+        set_cursor(cursor_pos);
+    }
+    //find a file
+    if(strings_equal(buffer_input, "fndf")){
+        find_called();
+    }
+    //create a file
+    if(strings_equal(buffer_input, "crtf")){
+        create_called();
+    }
+
     //Clear Buffer(SHOULD BE AT LAST)
     clear_buffer();
-}
-
-static inline void outb(uint16_t port, uint8_t val) {
-    asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
-
-void set_cursor(int pos){
-    outb(0x3D4, 0x0E);
-    outb(0x305, (pos >> 8) & 0xFF);
-    outb(0x3D4, 0x0F);
-    outb(0X3D5, pos & 0xFF);
 }
 
 void check_bounds(){
@@ -574,12 +635,10 @@ void irq1_keyboard(uint16_t scan_code){
         removeFromBuffer();
     }
     if(scan_code == capslock_pressed){
-        if(scan_code == capslock_pressed){
-            capslock = 1; // Turn on
-        }
         if(capslock == 1){
             capslock = 0;
         }
+        capslock = 1; // Turn on
     }
     if (is_extended == 1) // movement inside the terminal
     {

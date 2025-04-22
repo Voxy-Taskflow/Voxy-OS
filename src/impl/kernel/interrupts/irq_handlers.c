@@ -58,11 +58,13 @@ static inline void outb(uint16_t port, uint8_t val) {
     asm volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
 
-void set_cursor(int pos){
-    outb(0x3D4, 0x0E);
-    outb(0x305, (pos >> 8) & 0xFF);
-    outb(0x3D4, 0x0F);
-    outb(0X3D5, pos & 0xFF);
+void set_cursor(int pos) {
+    if(pos >= 0 && pos < 2000) { // 80x25 = 2000 positions
+        outb(0x3D4, 0x0F);
+        outb(0x3D5, (uint8_t)(pos & 0xFF));
+        outb(0x3D4, 0x0E);
+        outb(0x3D5, (uint8_t)((pos >> 8) & 0xFF));
+    }
 }
 
 void clear_buffer(){
@@ -130,7 +132,7 @@ void create_called(){
     }
 }
 
-void check_command(){
+void check_command() {
     //help
     if(strings_equal(buffer_input, "help")){
         help_called();
@@ -160,8 +162,24 @@ void check_command(){
     if(strings_equal(buffer_input, "crtf")){
         create_called();
     }
-
-    //Clear Buffer(SHOULD BE AT LAST)
+    
+    // Add new commands
+    if(strings_equal(buffer_input, "ld")) {
+        list_directories();
+    }
+    if(strings_equal(buffer_input, "fndd")) {
+        print_set_color(PRINT_COLOR_BLUE, PRINT_COLOR_BLACK);
+        print_str("\nEnter directory name to find: ");
+        clear_buffer();
+        while(1) {
+            uint16_t scan_code = inb(0x60);
+            if (scan_code == enter_released) {
+                find_folder(buffer_input);
+                break;
+            }
+        }
+    }
+    // Clear buffer remains at the end
     clear_buffer();
 }
 
@@ -194,436 +212,273 @@ void removeFromBuffer(){
     }
 }
 
-void irq1_keyboard(uint16_t scan_code){
-    if(scan_code == a_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('a');
+void print_char_at_cursor(char c, uint8_t color) {
+    uint16_t pos = y * 80 + x;
+    char* video = (char*)0xB8000;
+    video[pos * 2] = c;
+    video[pos * 2 + 1] = color;
+    x++;
+    if(x >= 80) {
+        x = 0;
+        y++;
+        if(y >= 25) {
+            // Scroll screen
+            for(int i = 0; i < 24 * 80 * 2; i++) {
+                video[i] = video[i + 160];
+            }
+            // Clear last line
+            for(int i = 24 * 80 * 2; i < 25 * 80 * 2; i += 2) {
+                video[i] = ' ';
+                video[i + 1] = color;
+            }
+            y = 24;
+        }
+    }
+    set_cursor(y * 80 + x);
+}
+
+// Update the keyboard handler to use print_char_at_cursor
+// Replace all instances of print_char with print_char_at_cursor in the keyboard handling code
+// Example:
+void irq1_keyboard(uint16_t scan_code) {
+    if(scan_code == a_released && capslock == 0) {
+        print_char_at_cursor('a', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('a');
-    }else if(scan_code == a_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('A');
+    } else if(scan_code == a_released && capslock == 1) {
+        print_char_at_cursor('A', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('A');
     }
-    if(scan_code == b_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('b');
+    if(scan_code == b_released && capslock == 0) {
+        print_char_at_cursor('b', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('b');
-    }else if (scan_code == b_released && capslock == 1)
-    {
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('B');
+    } else if (scan_code == b_released && capslock == 1) {
+        print_char_at_cursor('B', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('B');
     } 
-    if(scan_code == c_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('c');
+    if(scan_code == c_released && capslock == 0) {
+        print_char_at_cursor('c', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('c');
-    }else if (scan_code == c_released && capslock == 1)
-    {
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('C');
+    } else if (scan_code == c_released && capslock == 1) {
+        print_char_at_cursor('C', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('C');
     }
-    if(scan_code == d_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('d');
+    if(scan_code == d_released && capslock == 0) {
+        print_char_at_cursor('d', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('d');
-    }else if(scan_code == e_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('D');
+    } else if(scan_code == e_released && capslock == 1) {
+        print_char_at_cursor('D', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('D');
     }
-    if(scan_code == e_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('e');
+    if(scan_code == e_released && capslock == 0) {
+        print_char_at_cursor('e', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('e');
-    }else if(scan_code == e_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('E');
+    } else if(scan_code == e_released && capslock == 1) {
+        print_char_at_cursor('E', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('E');
     }
-    if(scan_code == f_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('f');
+    if(scan_code == f_released && capslock == 0) {
+        print_char_at_cursor('f', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('f');
-    }else if(scan_code == f_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('F');
+    } else if(scan_code == f_released && capslock == 1) {
+        print_char_at_cursor('F', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('F');
     }
-    if(scan_code == g_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('g');
+    if(scan_code == g_released && capslock == 0) {
+        print_char_at_cursor('g', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('g');
-    }else if(scan_code == g_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('G');
+    } else if(scan_code == g_released && capslock == 1) {
+        print_char_at_cursor('G', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('G');
     }
-    if(scan_code == h_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('h');
+    if(scan_code == h_released && capslock == 0) {
+        print_char_at_cursor('h', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('h');
-    }else if(scan_code == h_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('H');
+    } else if(scan_code == h_released && capslock == 1) {
+        print_char_at_cursor('H', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('H');
     }
-    if(scan_code == i_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('i');
+    if(scan_code == i_released && capslock == 0) {
+        print_char_at_cursor('i', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('i');
-    }else if(scan_code == i_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('I');
+    } else if(scan_code == i_released && capslock == 1) {
+        print_char_at_cursor('I', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('I');
     }
-    if(scan_code == j_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('j');
+    if(scan_code == j_released && capslock == 0) {
+        print_char_at_cursor('j', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('j');
-    }else if(scan_code == j_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('J');
+    } else if(scan_code == j_released && capslock == 1) {
+        print_char_at_cursor('J', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('J');
     }
-    if(scan_code == k_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('k');
+    if(scan_code == k_released && capslock == 0) {
+        print_char_at_cursor('k', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('k');
-    }else if(scan_code == k_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('K');
+    } else if(scan_code == k_released && capslock == 1) {
+        print_char_at_cursor('K', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('K');
     }
-    if(scan_code == l_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('l');
+    if(scan_code == l_released && capslock == 0) {
+        print_char_at_cursor('l', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('l');
-    }else if(scan_code == l_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('L');
+    } else if(scan_code == l_released && capslock == 1) {
+        print_char_at_cursor('L', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('L');
     }
-    if(scan_code == m_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('m');
+    if(scan_code == m_released && capslock == 0) {
+        print_char_at_cursor('m', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('m');
-    }else if(scan_code == m_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('M');
+    } else if(scan_code == m_released && capslock == 1) {
+        print_char_at_cursor('M', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('M');
     }
-    if(scan_code == n_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('n');
+    if(scan_code == n_released && capslock == 0) {
+        print_char_at_cursor('n', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('n');
-    }else if(scan_code == n_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('N');
+    } else if(scan_code == n_released && capslock == 1) {
+        print_char_at_cursor('N', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('N');
     }
-    if(scan_code == o_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('o');
+    if(scan_code == o_released && capslock == 0) {
+        print_char_at_cursor('o', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('o');
-    }else if(scan_code == o_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('O');
+    } else if(scan_code == o_released && capslock == 1) {
+        print_char_at_cursor('O', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('O');
     }
-    if(scan_code == p_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('p');
+    if(scan_code == p_released && capslock == 0) {
+        print_char_at_cursor('p', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('p');
-    }else if(scan_code == p_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('P');
+    } else if(scan_code == p_released && capslock == 1) {
+        print_char_at_cursor('P', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('P');
     }
-    if(scan_code == q_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('q');
+    if(scan_code == q_released && capslock == 0) {
+        print_char_at_cursor('q', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('q');
-    }else if(scan_code == q_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('Q');
+    } else if(scan_code == q_released && capslock == 1) {
+        print_char_at_cursor('Q', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('Q');
     }
-    if(scan_code == r_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('r');
+    if(scan_code == r_released && capslock == 0) {
+        print_char_at_cursor('r', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('r');
-    }else if(scan_code == r_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('R');
+    } else if(scan_code == r_released && capslock == 1) {
+        print_char_at_cursor('R', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('R');
     }
-    if(scan_code == s_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('s');
+    if(scan_code == s_released && capslock == 0) {
+        print_char_at_cursor('s', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('s');
-    }else if(scan_code == s_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('S');
+    } else if(scan_code == s_released && capslock == 1) {
+        print_char_at_cursor('S', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('S');
     }
-    if(scan_code == t_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('t');
+    if(scan_code == t_released && capslock == 0) {
+        print_char_at_cursor('t', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('t');
-    }else if(scan_code == t_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('T');
+    } else if(scan_code == t_released && capslock == 1) {
+        print_char_at_cursor('T', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('T');
     }
-    if(scan_code == u_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('u');
+    if(scan_code == u_released && capslock == 0) {
+        print_char_at_cursor('u', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('u');
-    }else if(scan_code == u_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('U');
+    } else if(scan_code == u_released && capslock == 1) {
+        print_char_at_cursor('U', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('U');
     }
-    if(scan_code == v_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('v');
+    if(scan_code == v_released && capslock == 0) {
+        print_char_at_cursor('v', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('v');
-    }else if(scan_code == v_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('V');
+    } else if(scan_code == v_released && capslock == 1) {
+        print_char_at_cursor('V', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('V');
     }
-    if(scan_code == w_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('w');
+    if(scan_code == w_released && capslock == 0) {
+        print_char_at_cursor('w', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('a');
-    }else if(scan_code == w_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('W');
+    } else if(scan_code == w_released && capslock == 1) {
+        print_char_at_cursor('W', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('W');
     }
-    if(scan_code == x_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('x');
+    if(scan_code == x_released && capslock == 0) {
+        print_char_at_cursor('x', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('x');
-    }else if(scan_code == x_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('X');
+    } else if(scan_code == x_released && capslock == 1) {
+        print_char_at_cursor('X', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('X');
     }
-    if(scan_code == y_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('y');
+    if(scan_code == y_released && capslock == 0) {
+        print_char_at_cursor('y', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('y');
-    }else if(scan_code == y_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('Y');
+    } else if(scan_code == y_released && capslock == 1) {
+        print_char_at_cursor('Y', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('Y');
     }
-    if(scan_code == z_released && capslock == 0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('z');
+    if(scan_code == z_released && capslock == 0) {
+        print_char_at_cursor('z', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('z');
-    }else if(scan_code == z_released && capslock == 1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('Z');
+    } else if(scan_code == z_released && capslock == 1) {
+        print_char_at_cursor('Z', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('Z');
     }
-    if(scan_code == released_1){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('1');
+    if(scan_code == released_1) {
+        print_char_at_cursor('1', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('1');
     }
-    if(scan_code == released_2){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('2');
+    if(scan_code == released_2) {
+        print_char_at_cursor('2', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('2');
     }
-    if(scan_code == released_3){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('3');
+    if(scan_code == released_3) {
+        print_char_at_cursor('3', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('3');
     }
-    if(scan_code == released_4){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('4');
+    if(scan_code == released_4) {
+        print_char_at_cursor('4', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('4');
     }
-    if(scan_code == released_5){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('5');
+    if(scan_code == released_5) {
+        print_char_at_cursor('5', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('5');
     }
-    if(scan_code == released_6){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('6');
+    if(scan_code == released_6) {
+        print_char_at_cursor('6', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('6');
     }
-    if(scan_code == released_7){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('7');
+    if(scan_code == released_7) {
+        print_char_at_cursor('7', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('7');
     }
-    if(scan_code == released_8){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('8');
+    if(scan_code == released_8) {
+        print_char_at_cursor('8', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('8');
     }
-    if(scan_code == released_9){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('9');
+    if(scan_code == released_9) {
+        print_char_at_cursor('9', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('9');
     }
-    if(scan_code == released_0){
-        x++;
-        check_bounds();
-        print_set_color(PRINT_COLOR_YELLOW, PRINT_COLOR_BLACK);
-        print_char('0');
+    if(scan_code == released_0) {
+        print_char_at_cursor('0', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer('0');
     }
-    if(scan_code == enter_released){
+    if(scan_code == enter_released) {
         y++;
         x = 0;
         check_bounds();
         print_str("\n");
         check_command();
     }
-    if(scan_code == space_released)
-    {
-        x++;
-        check_bounds();
-        print_str(" ");
+    if(scan_code == space_released) {
+        print_char_at_cursor(' ', PRINT_COLOR_YELLOW | (PRINT_COLOR_BLACK << 4));
         addToBuffer(' ');
     }
-    if(scan_code == backspace_pressed){
-        if (x == 0){
+    if(scan_code == backspace_pressed) {
+        if (x == 0) {
             y--;
             x = 79;
-        }else{
+        } else {
             x--;
         }
         uint16_t pos = y * 80 + x;
@@ -634,8 +489,8 @@ void irq1_keyboard(uint16_t scan_code){
         set_cursor(pos_cursor);
         removeFromBuffer();
     }
-    if(scan_code == capslock_pressed){
-        if(capslock == 1){
+    if(scan_code == capslock_pressed) {
+        if(capslock == 1) {
             capslock = 0;
         }
         capslock = 1; // Turn on
@@ -656,7 +511,6 @@ void irq1_keyboard(uint16_t scan_code){
         return;
     }
 }
-
 
 void handle_irq0() {
     static int ticks = 0;

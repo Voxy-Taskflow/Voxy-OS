@@ -40,5 +40,6 @@ void delete_file(const char* name);
 void create_file(const char* name);
 void list_directories();
 int find_file(const char* name);
+void find_folder(const char* name);
 
 #endif

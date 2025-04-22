@@ -40,19 +40,42 @@ int find_file(const char* name) {
     for (int i = 0; i < root_dir.file_count; i++) {
         int idx = root_dir.inode_indexes[i];
         if (strings_equal(inodes[idx].name, name)) {
-            return idx;
             print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
-            print_str("File found");
+            print_str("\nFile found at index: ");
+            // Convert index to string and print
+            char idx_str[3] = {0};
+            int temp = idx;
+            int pos = 0;
+            do {
+                idx_str[pos++] = '0' + (temp % 10);
+                temp /= 10;
+            } while (temp > 0);
+            // Print in reverse
+            while (pos > 0) {
+                print_char(idx_str[--pos]);
+            }
+            print_str("\n");
+            return idx;
         }
     }
+    print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
+    print_str("\nFile not found!\n");
     return -1;
 }
 
 void create_file(const char* name) {
-    if (find_file(name) != -1) return;
+    if (find_file(name) != -1) {
+        print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
+        print_str("\nError: File already exists!\n");
+        return;
+    }
 
     int inode_index = find_free_inode();
-    if (inode_index == -1) return;
+    if (inode_index == -1) {
+        print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
+        print_str("\nError: No free inodes available!\n");
+        return;
+    }
 
     Inode* node = &inodes[inode_index];
     int i = 0;
@@ -66,6 +89,20 @@ void create_file(const char* name) {
 
     root_dir.inode_indexes[root_dir.file_count++] = inode_index;
     superblock.used_inodes++;
+
+    print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
+    print_str("\nFile created successfully at index: ");
+    char idx_str[3] = {0};
+    int temp = inode_index;
+    int pos = 0;
+    do {
+        idx_str[pos++] = '0' + (temp % 10);
+        temp /= 10;
+    } while (temp > 0);
+    while (pos > 0) {
+        print_char(idx_str[--pos]);
+    }
+    print_str("\n");
 }
 
 void delete_file(const char* name) {
@@ -114,9 +151,48 @@ void delete_folder(const char* name) {
 }
 
 void list_directories() {
+    print_set_color(PRINT_COLOR_CYAN, PRINT_COLOR_BLACK);
+    print_str("\nDirectory Listing:\n");
+    print_str("----------------\n");
+    
+    if (root_dir.file_count == 0) {
+        print_str("No files or directories.\n");
+        return;
+    }
+
     for (int i = 0; i < root_dir.file_count; i++) {
         Inode* node = &inodes[root_dir.inode_indexes[i]];
-        // Replace this with your kernel printf
-        // printf("%s\n", node->name);
+        if (node->is_directory) {
+            print_set_color(PRINT_COLOR_BLUE, PRINT_COLOR_BLACK);
+            print_str("[DIR] ");
+        } else {
+            print_set_color(PRINT_COLOR_WHITE, PRINT_COLOR_BLACK);
+            print_str("[FILE] ");
+        }
+        print_str(node->name);
+        print_str("\n");
+    }
+}
+
+void find_folder(const char* name) {
+    int idx = find_file(name);
+    if (idx != -1 && inodes[idx].is_directory) {
+        print_set_color(PRINT_COLOR_GREEN, PRINT_COLOR_BLACK);
+        print_str("Found directory at index: ");
+        // Print index number
+        char idx_str[3] = {0};
+        int temp = idx;
+        int pos = 0;
+        do {
+            idx_str[pos++] = '0' + (temp % 10);
+            temp /= 10;
+        } while (temp > 0);
+        while (pos > 0) {
+            print_char(idx_str[--pos]);
+        }
+        print_str("\n");
+    } else {
+        print_set_color(PRINT_COLOR_RED, PRINT_COLOR_BLACK);
+        print_str("Directory not found!\n");
     }
 }
